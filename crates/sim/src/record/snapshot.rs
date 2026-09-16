@@ -6,7 +6,7 @@
 use rkyv::rancor;
 use rkyv::util::AlignedVec;
 
-use crate::state::State;
+use crate::State;
 
 pub fn to_bytes(state: &State) -> Vec<u8> {
     rkyv::to_bytes::<rancor::Error>(state)

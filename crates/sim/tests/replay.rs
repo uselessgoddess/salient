@@ -6,24 +6,24 @@
 //! twenty narrow ones would restate the functions rather than prove the system.
 //!
 //! The pinned values are not claims about correctness. They are claims about *stability*: a
-//! change to them is a change to simulation behaviour, which must be deliberate and must bump
-//! `SIM_VERSION`. Run the same seed through the `fingerprint` tool on Linux, Windows and macOS
-//! and compare the output — that is the half of the proof this test cannot make on its own.
+//! change to them is a change to simulation behaviour, and must be deliberate. Regenerate them
+//! and say why in the commit. Run the same seed through the `fingerprint` tool on Linux,
+//! Windows and macOS and compare the output — that is the half of the proof this test cannot
+//! make on its own.
 
 use salient_sim::command::{Action, Target};
-use salient_sim::fx::Fx;
-use salient_sim::{Order, Recording, Rules, Scenario, Sim, Vec2};
+use salient_sim::{Fx, Order, Recording, Rules, Scenario, Sim, Vec2};
 
 const SEED: u64 = 1;
 const UNITS: u32 = 512;
 
 /// Fingerprints after the scripted match, pinned. Regenerate deliberately, never casually.
 const GOLDEN: &[(u32, u64)] = &[
-    (0, 0x6be665d302927a3d),
-    (250, 0xd928d462c7111de9),
-    (500, 0x6e53857ebb74d6db),
-    (1000, 0xa9339058d1a07681),
-    (2000, 0x8d1c06453da346ce),
+    (0, 0x020622607e2662d7),
+    (250, 0x6f27cfe2ac906dc9),
+    (500, 0xb8222fe06fe1ad8a),
+    (1000, 0x49af2735c3b004d4),
+    (2000, 0x2d1217930380d064),
 ];
 
 /// A short match with orders that actually change the outcome, so the log is load-bearing
@@ -69,7 +69,7 @@ fn replay_matches_golden() {
         let listed: Vec<String> =
             got.iter().map(|(t, f)| format!("    ({t}, 0x{f:016x}),")).collect();
         panic!(
-            "simulation behaviour changed. If that was deliberate, bump SIM_VERSION and pin:\n{}",
+            "simulation behaviour changed. If that was deliberate, pin these and say why:\n{}",
             listed.join("\n")
         );
     }

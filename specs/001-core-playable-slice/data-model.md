@@ -72,8 +72,15 @@ static).
 | `health` | `Fx` | |
 | `stock` | `Option<Stock>` | Present only for builders and transports |
 | `cargo` | `Option<Cargo>` | Transports only |
-| `orders` | queue of `Order` | Per-unit queue; see Order |
+| `orders` | queue of `Order` | **Superseded** — see below |
 | `group` | `Option<GroupId>` | Derived each tick from group rules, never assigned directly |
+
+**Superseded by spec 002 (Steering State as Its Own Subsystem)**: order-issued intent is not a field
+of a Unit. A destination is written by the order system, read by the steering system, and meaningless
+to everything else, so it lives beside the unit arena in an epoch-checked table rather than inside
+the record every other system touches. `group` stays listed because it is derived each tick from the
+rules rather than written by one removable subsystem, but the same test applies to it when it is
+built: a value written by exactly one subsystem that could be deleted does not belong here.
 
 **Validation**: `domain` MUST be consistent with the terrain under `pos` at all times — a land unit
 may never occupy a cell whose land passability bit is clear (FR-012). Orders that would violate this

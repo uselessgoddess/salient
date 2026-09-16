@@ -1,5 +1,7 @@
 //! Command line.
 
+use std::process;
+
 use bevy::prelude::Resource;
 use salient_sim::{Rules, Scenario};
 
@@ -44,7 +46,7 @@ impl Args {
                 }
                 "--help" | "-h" => {
                     println!("salient [--seed N] [--units N] [--scenario NAME] [--replay PATH]");
-                    std::process::exit(0)
+                    process::exit(0)
                 }
                 other => fail(&format!("unknown argument {other}")),
             }
@@ -60,5 +62,5 @@ fn num<T: std::str::FromStr>(v: Option<&String>, what: &str) -> T {
 
 fn fail(msg: &str) -> ! {
     eprintln!("salient: {msg}");
-    std::process::exit(2)
+    process::exit(2)
 }

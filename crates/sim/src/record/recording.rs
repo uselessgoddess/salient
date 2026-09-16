@@ -4,20 +4,15 @@
 //! match, which is a consequence of orders being the simulation's only input rather than a
 //! feature anybody had to build.
 
+use core::{error, fmt};
+
 use rkyv::rancor;
 use rkyv::util::AlignedVec;
 
-use crate::command::Order;
-use crate::rules::Rules;
-use crate::scenario::Scenario;
+use crate::{Order, Rules, Scenario};
 
-pub const MAGIC: [u8; 4] = *b"SLNT";
-
-/// Bumped when the file layout changes, which is separate from simulation behaviour changing.
-/// Keeping them apart is what lets an old recording be refused for the right reason.
-pub const FORMAT_VERSION: u16 = 1;
-
-#[derive(Clone, Debug, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Recording {
     pub sim_version: u32,
     pub seed: u64,
@@ -49,8 +44,8 @@ pub enum LoadError {
     Corrupt,
 }
 
-impl core::fmt::Display for LoadError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for LoadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             LoadError::NotARecording => f.write_str("not a Salient recording"),
             LoadError::Format { found, expected } => {
@@ -69,14 +64,21 @@ impl core::fmt::Display for LoadError {
     }
 }
 
-impl core::error::Error for LoadError {}
+impl error::Error for LoadError {}
 
 impl Recording {
+    pub const MAGIC: [u8; 4] = *b"SLNT";
+
+    /// Bumped when the file layout changes, which is separate from simulation behaviour
+    /// changing. Keeping them apart is what lets an old recording be refused for the right
+    /// reason.
+    pub const FORMAT_VERSION: u16 = 1;
+
     pub fn to_bytes(&self) -> Vec<u8> {
         let body = rkyv::to_bytes::<rancor::Error>(self).expect("recording is plain data");
         let mut out = Vec::with_capacity(body.len() + 6);
-        out.extend_from_slice(&MAGIC);
-        out.extend_from_slice(&FORMAT_VERSION.to_le_bytes());
+        out.extend_from_slice(&Recording::MAGIC);
+        out.extend_from_slice(&Recording::FORMAT_VERSION.to_le_bytes());
         out.extend_from_slice(&body);
         out
     }
@@ -84,12 +86,12 @@ impl Recording {
     /// Refuses rather than guessing. A recording that cannot be replayed faithfully is not
     /// replayed at all.
     pub fn from_bytes(bytes: &[u8]) -> Result<Recording, LoadError> {
-        if bytes.len() < 6 || bytes[..4] != MAGIC {
+        if bytes.len() < 6 || bytes[..4] != Recording::MAGIC {
             return Err(LoadError::NotARecording);
         }
         let found = u16::from_le_bytes([bytes[4], bytes[5]]);
-        if found != FORMAT_VERSION {
-            return Err(LoadError::Format { found, expected: FORMAT_VERSION });
+        if found != Recording::FORMAT_VERSION {
+            return Err(LoadError::Format { found, expected: Recording::FORMAT_VERSION });
         }
         // Copy into an aligned buffer: the header pushes the body off any alignment the
         // allocation happened to have, and the archived layout needs more than byte alignment.

@@ -35,6 +35,14 @@ decision.
 
 ## Versioning obligation
 
-Any change to simulation behaviour MUST bump `SIM_VERSION`, regenerate the golden recording, and
-record the reason in the commit (Constitution: determinism gate). `format_version` is separate and
-changes only when the file layout changes, so an old recording can be rejected for the right reason.
+Any change to simulation behaviour, or to the serialised shape the fingerprint is taken over, MUST
+regenerate the golden recording and record the reason in the commit (Constitution: determinism
+gate). `format_version` is separate and changes only when the file layout changes, so an old
+recording can be rejected for the right reason.
+
+**Superseded in part by constitution 1.6.0.** This contract originally required a `SIM_VERSION` bump
+for every behavioural change. Version discipline now begins where a stored artifact outlives the
+build that produced it, which this project has not reached: no build has been handed out, no replay
+or save is kept beyond the run that made it, and there is no networked match. Until one of those is
+true the number is held fixed and the regenerated fingerprints carry the change. The refusal path
+above is unaffected and stays tested.

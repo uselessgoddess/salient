@@ -51,8 +51,8 @@ fn quarter_sin(u: Fx) -> Fx {
 /// Sine of an angle in turns.
 pub fn sin(turns: Fx) -> Fx {
     let t4 = turns.frac().to_bits() << 2;
-    let quad = (t4 >> super::FRAC) & 3;
-    let r = Fx::from_bits(t4 & ((1i64 << super::FRAC) - 1));
+    let quad = (t4 >> Fx::FRAC) & 3;
+    let r = Fx::from_bits(t4 & ((1i64 << Fx::FRAC) - 1));
     match quad {
         0 => quarter_sin(r),
         1 => quarter_sin(Fx::ONE - r),
@@ -64,7 +64,7 @@ pub fn sin(turns: Fx) -> Fx {
 /// Cosine of an angle in turns.
 #[inline]
 pub fn cos(turns: Fx) -> Fx {
-    sin(turns + Fx::ratio(1, 4))
+    sin(turns + Fx::from_ratio(1, 4))
 }
 
 /// Unit vector pointing along an angle in turns.
@@ -111,7 +111,7 @@ pub fn atan2(y: Fx, x: Fx) -> Fx {
     let octant = if ax >= ay {
         atan_unit(ay / ax) * Fx::INV_TAU
     } else {
-        Fx::ratio(1, 4) - atan_unit(ax / ay) * Fx::INV_TAU
+        Fx::from_ratio(1, 4) - atan_unit(ax / ay) * Fx::INV_TAU
     };
 
     let turns = match (x.to_bits() < 0, y.to_bits() < 0) {

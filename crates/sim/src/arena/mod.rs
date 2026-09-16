@@ -11,32 +11,23 @@
 
 /// A stable reference into an [`Arena`]. The generation distinguishes a live entity from a
 /// dead one that happened to occupy the same slot.
-#[derive(
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Debug,
-    rkyv::Archive,
-    rkyv::Serialize,
-    rkyv::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 #[rkyv(derive(Debug))]
 pub struct Handle {
     slot: u32,
     epoch: u32,
 }
 
-#[derive(Clone, Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(Clone, Debug)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 struct Slot<T> {
     epoch: u32,
     value: Option<T>,
 }
 
-#[derive(Clone, Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(Clone, Debug)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Arena<T> {
     slots: Vec<Slot<T>>,
     free: Vec<u32>,
@@ -128,5 +119,79 @@ impl<T> Arena<T> {
 
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.slots.iter_mut().filter_map(|s| s.value.as_mut())
+    }
+}
+
+/// A value attached to a live [`Arena`] entry and stored beside the arena rather than inside
+/// it.
+///
+/// This is where state belonging to one removable subsystem goes, so that it does not have to
+/// sit in the record every other subsystem reads. Entries are epoch-checked exactly as the
+/// arena is, which is the whole reason this type exists rather than a bare parallel vector: a
+/// slot reused by a new entry never inherits the previous occupant's value.
+#[derive(Clone, Debug)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Table<T> {
+    slots: Vec<Option<Entry<T>>>,
+}
+
+#[derive(Clone, Debug)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+struct Entry<T> {
+    epoch: u32,
+    value: T,
+}
+
+impl<T> Default for Table<T> {
+    fn default() -> Self {
+        Table { slots: Vec::new() }
+    }
+}
+
+impl<T> Table<T> {
+    pub fn new() -> Table<T> {
+        Table::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.slots.iter().all(|s| s.is_none())
+    }
+
+    pub fn insert(&mut self, h: Handle, value: T) {
+        let slot = h.slot as usize;
+        if slot >= self.slots.len() {
+            self.slots.resize_with(slot + 1, || None);
+        }
+        self.slots[slot] = Some(Entry { epoch: h.epoch, value });
+    }
+
+    pub fn remove(&mut self, h: Handle) -> Option<T> {
+        let s = self.slots.get_mut(h.slot as usize)?;
+        match s {
+            Some(e) if e.epoch == h.epoch => s.take().map(|e| e.value),
+            _ => None,
+        }
+    }
+
+    pub fn get(&self, h: Handle) -> Option<&T> {
+        match self.slots.get(h.slot as usize)? {
+            Some(e) if e.epoch == h.epoch => Some(&e.value),
+            _ => None,
+        }
+    }
+
+    /// Visit every entry in slot order, dropping those the predicate rejects.
+    ///
+    /// Slot order rather than insertion order, so the sequence is a property of the data and
+    /// the same on every machine. Dropping is how an entry outliving its unit is reclaimed:
+    /// the caller refuses a handle the arena no longer knows, and the entry goes with it.
+    pub fn retain(&mut self, mut keep: impl FnMut(Handle, &mut T) -> bool) {
+        for (i, s) in self.slots.iter_mut().enumerate() {
+            let Some(e) = s else { continue };
+            let h = Handle { slot: i as u32, epoch: e.epoch };
+            if !keep(h, &mut e.value) {
+                *s = None;
+            }
+        }
     }
 }

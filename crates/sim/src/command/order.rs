@@ -6,28 +6,31 @@
 //! simulation boundary, and is a signal to reconsider the design rather than to widen this
 //! type.
 
-use crate::arena::Handle;
-use crate::fx::Vec2;
-use crate::unit::Player;
+use core::fmt;
+
+use crate::{Handle, Player, Vec2};
 
 /// A rule-defined group. Membership is derived each tick, never stored as a list, so units
 /// produced later join the group they belong to without anyone maintaining it.
 pub type GroupId = u16;
 
-#[derive(Clone, Debug, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub enum Target {
     Units(Vec<Handle>),
     Group(GroupId),
 }
 
 /// Actions grow over the increments. Adding one must not change the shape of [`Order`].
-#[derive(Clone, Debug, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub enum Action {
     Move { to: Vec2 },
     Stop,
 }
 
-#[derive(Clone, Debug, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Order {
     /// The tick this takes effect on.
     pub tick: u32,
@@ -50,8 +53,8 @@ pub enum Reject {
     Unsupported,
 }
 
-impl core::fmt::Display for Reject {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for Reject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Reject::StaleHandle => "handle is stale",
             Reject::NotOwned => "target not owned by issuer",

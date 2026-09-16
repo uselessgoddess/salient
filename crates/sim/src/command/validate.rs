@@ -5,7 +5,7 @@
 //! get wrong and no way to panic on malformed input.
 
 use super::order::{Action, Order, Reject, Target};
-use crate::state::State;
+use crate::State;
 
 pub fn validate(state: &State, order: &Order) -> Result<(), Reject> {
     match &order.target {

@@ -4,7 +4,7 @@
 //! [`super`]: the surface is fifteen lines, and owning it removes one more thing that could
 //! change a single bit between releases.
 
-use super::{FRAC, Fx};
+use super::Fx;
 
 /// Floor of the square root. Exact for every input.
 ///
@@ -36,5 +36,5 @@ pub const fn sqrt(v: Fx) -> Fx {
     if v.to_bits() <= 0 {
         return Fx::ZERO;
     }
-    Fx::from_bits(isqrt((v.to_bits() as u128) << FRAC) as i64)
+    Fx::from_bits(isqrt((v.to_bits() as u128) << Fx::FRAC) as i64)
 }

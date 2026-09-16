@@ -4,9 +4,10 @@
 //! stream from the same seed on every platform forever. The point is not statistical quality;
 //! it is that the sequence is a pure function of the seed and the number of draws taken.
 
-use crate::fx::Fx;
+use crate::Fx;
 
-#[derive(Clone, Copy, Debug, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(Clone, Copy, Debug, Default)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Rng(u64);
 
 impl Rng {
@@ -24,7 +25,7 @@ impl Rng {
 
     /// Uniform value in `[0, 1)`.
     pub fn unit(&mut self) -> Fx {
-        Fx::from_bits((self.next_u64() >> 32) as i64)
+        Fx::from_frac_bits((self.next_u64() >> 32) as u32)
     }
 
     /// Uniform value in `[lo, hi)`.

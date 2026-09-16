@@ -4,20 +4,12 @@
 //! squared lengths against squared thresholds instead of taking roots. At map scale the square
 //! does not fit in 64 bits, and this is the hottest quantity in the simulation.
 
+use core::ops;
+
 use super::{Fx, Fx2, trig};
 
-#[derive(
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    Default,
-    Debug,
-    rkyv::Archive,
-    rkyv::Serialize,
-    rkyv::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 #[rkyv(derive(Debug))]
 pub struct Vec2 {
     pub x: Fx,
@@ -72,7 +64,7 @@ impl Vec2 {
     }
 }
 
-impl core::ops::Add for Vec2 {
+impl ops::Add for Vec2 {
     type Output = Vec2;
     #[inline]
     fn add(self, rhs: Vec2) -> Vec2 {
@@ -80,7 +72,7 @@ impl core::ops::Add for Vec2 {
     }
 }
 
-impl core::ops::Sub for Vec2 {
+impl ops::Sub for Vec2 {
     type Output = Vec2;
     #[inline]
     fn sub(self, rhs: Vec2) -> Vec2 {
@@ -88,7 +80,7 @@ impl core::ops::Sub for Vec2 {
     }
 }
 
-impl core::ops::AddAssign for Vec2 {
+impl ops::AddAssign for Vec2 {
     #[inline]
     fn add_assign(&mut self, rhs: Vec2) {
         self.x += rhs.x;

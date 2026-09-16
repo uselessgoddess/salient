@@ -1,5 +1,3 @@
-# Pinned. An unpinned nightly breaks on an arbitrary Tuesday, and a toolchain change is a
-# candidate cause for any determinism failure, so it must never move by accident.
 [toolchain]
 channel = "nightly-2026-06-06"
 components = ["rustfmt", "clippy"]

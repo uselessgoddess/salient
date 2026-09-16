@@ -9,27 +9,18 @@
 //! Its square root lands back in Q32.32 with no shifting, because halving 64 fractional bits
 //! gives 32.
 
-use super::{FRAC, Fx, sqrt};
+use core::{fmt, ops};
+
+use super::{Fx, sqrt};
 
 /// Q64.64 fixed point. The exact product of two [`Fx`] values.
-#[derive(
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Default,
-    rkyv::Archive,
-    rkyv::Serialize,
-    rkyv::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Fx2(i128);
 
 impl Fx2 {
     pub const ZERO: Fx2 = Fx2(0);
-    pub const ONE: Fx2 = Fx2(1 << (FRAC * 2));
+    pub const ONE: Fx2 = Fx2(1 << (Fx::FRAC * 2));
 
     #[inline]
     pub const fn from_bits(bits: i128) -> Fx2 {
@@ -44,7 +35,7 @@ impl Fx2 {
     /// Widen a narrow value without loss.
     #[inline]
     pub const fn widen(v: Fx) -> Fx2 {
-        Fx2((v.to_bits() as i128) << FRAC)
+        Fx2((v.to_bits() as i128) << Fx::FRAC)
     }
 
     /// Square root, landing back in [`Fx`]. Negative input yields zero.
@@ -60,11 +51,11 @@ impl Fx2 {
     /// fits; prefer comparing two `Fx2` values directly over narrowing either of them.
     #[inline]
     pub const fn narrow(self) -> Fx {
-        Fx::from_bits(super::narrow(self.0 >> FRAC))
+        Fx::from_bits(super::narrow(self.0 >> Fx::FRAC))
     }
 }
 
-impl core::ops::Add for Fx2 {
+impl ops::Add for Fx2 {
     type Output = Fx2;
     #[inline]
     fn add(self, rhs: Fx2) -> Fx2 {
@@ -72,7 +63,7 @@ impl core::ops::Add for Fx2 {
     }
 }
 
-impl core::ops::Sub for Fx2 {
+impl ops::Sub for Fx2 {
     type Output = Fx2;
     #[inline]
     fn sub(self, rhs: Fx2) -> Fx2 {
@@ -80,8 +71,8 @@ impl core::ops::Sub for Fx2 {
     }
 }
 
-impl core::fmt::Debug for Fx2 {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Debug for Fx2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}~", self.narrow())
     }
 }

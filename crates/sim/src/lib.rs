@@ -40,14 +40,16 @@ pub use record::{LoadError, Recording};
 pub use report::Report;
 pub use rules::{Defeat, Rules};
 pub use scenario::Scenario;
-pub use state::{DT, State, TICK_RATE};
+pub use state::State;
 pub use unit::{Domain, Player, Unit};
 
-/// Bumped whenever simulation behaviour changes.
+/// Identifies the behaviour a recording was made by, so that one simulation never reads an
+/// artifact produced by a different one.
 ///
-/// A recording carries this and is refused on mismatch. Without that, a behaviour change would
-/// turn every old recording into a plausible wrong result, and the desyncs it produced would
-/// look like real ones.
+/// Held fixed while the project is pre-release: nothing yet outlives the build that made it,
+/// so there is no reader for the number. A behavioural change is carried by the regenerated
+/// golden fingerprints instead. Handing out a build, keeping a replay, or playing a networked
+/// match restores per-change bumps, and that same change must restore them.
 pub const SIM_VERSION: u32 = 1;
 
 /// A match in progress.

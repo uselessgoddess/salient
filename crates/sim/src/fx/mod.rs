@@ -12,6 +12,8 @@
 //! Note that determinism is not accuracy. Results here drift from the real-valued answer, and
 //! that is fine, because every participant drifts identically.
 
+use core::{fmt, ops};
+
 mod consts;
 pub mod sqrt;
 pub mod trig;
@@ -24,25 +26,11 @@ mod tests;
 pub use vec::Vec2;
 pub use wide::Fx2;
 
-/// Fractional bits.
-pub const FRAC: u32 = 32;
-
 /// Q32.32 fixed-point scalar.
-#[derive(
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Default,
-    rkyv::Archive,
-    rkyv::Serialize,
-    rkyv::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 #[rkyv(derive(Debug))]
-pub struct Fx(pub(crate) i64);
+pub struct Fx(pub(in crate::fx) i64);
 
 /// Narrow a wide intermediate, saturating rather than wrapping.
 ///
@@ -60,17 +48,26 @@ const fn narrow(v: i128) -> i64 {
 }
 
 impl Fx {
+    /// Fractional bits.
+    pub const FRAC: u32 = 32;
+
     pub const ZERO: Fx = Fx(0);
-    pub const ONE: Fx = Fx(1 << FRAC);
-    pub const HALF: Fx = Fx(1 << (FRAC - 1));
+    pub const ONE: Fx = Fx(1 << Fx::FRAC);
+    pub const HALF: Fx = Fx(1 << (Fx::FRAC - 1));
     pub const MIN: Fx = Fx(i64::MIN);
     pub const MAX: Fx = Fx(i64::MAX);
-    /// Smallest representable step.
     pub const EPS: Fx = Fx(1);
 
     #[inline]
     pub const fn from_bits(bits: i64) -> Fx {
         Fx(bits)
+    }
+
+    /// A value in `[0, 1)` built from 32 bits of randomness. The bits become the fractional
+    /// part directly: one representable value per input, no rounding, no rejected range.
+    #[inline]
+    pub const fn from_frac_bits(bits: u32) -> Fx {
+        Fx(bits as i64)
     }
 
     #[inline]
@@ -80,25 +77,25 @@ impl Fx {
 
     #[inline]
     pub const fn from_int(n: i32) -> Fx {
-        Fx((n as i64) << FRAC)
+        Fx((n as i64) << Fx::FRAC)
     }
 
     /// Exact ratio, rounded toward negative infinity.
     #[inline]
-    pub const fn ratio(num: i32, den: i32) -> Fx {
-        Fx(narrow(((num as i128) << FRAC) / den as i128))
+    pub const fn from_ratio(num: i32, den: i32) -> Fx {
+        Fx(narrow(((num as i128) << Fx::FRAC) / den as i128))
     }
 
     /// Largest integer not greater than this value.
     #[inline]
     pub const fn floor(self) -> i32 {
-        (self.0 >> FRAC) as i32
+        (self.0 >> Fx::FRAC) as i32
     }
 
     /// Fractional part, always in `[0, 1)`, including for negatives.
     #[inline]
     pub const fn frac(self) -> Fx {
-        Fx(self.0 & ((1 << FRAC) - 1))
+        Fx(self.0 & ((1 << Fx::FRAC) - 1))
     }
 
     #[inline]
@@ -139,7 +136,7 @@ impl Fx {
     /// negatives, and consistency is what matters here.
     #[inline]
     pub const fn mul(self, rhs: Fx) -> Fx {
-        Fx(narrow((self.0 as i128 * rhs.0 as i128) >> FRAC))
+        Fx(narrow((self.0 as i128 * rhs.0 as i128) >> Fx::FRAC))
     }
 
     /// Divide, rounding toward negative infinity. Division by zero yields a saturated value
@@ -149,7 +146,7 @@ impl Fx {
         if rhs.0 == 0 {
             return if self.0 < 0 { Fx::MIN } else { Fx::MAX };
         }
-        Fx(narrow(((self.0 as i128) << FRAC) / rhs.0 as i128))
+        Fx(narrow(((self.0 as i128) << Fx::FRAC) / rhs.0 as i128))
     }
 
     /// Full-precision product, kept wide. See [`Fx2`].
@@ -166,7 +163,7 @@ impl Fx {
 
     #[inline]
     pub const fn lerp(self, to: Fx, t: Fx) -> Fx {
-        Fx(self.0 + narrow(((to.0 - self.0) as i128 * t.0 as i128) >> FRAC))
+        Fx(self.0 + narrow(((to.0 - self.0) as i128 * t.0 as i128) >> Fx::FRAC))
     }
 
     /// Square root, or zero for negative input. See [`sqrt`].
@@ -176,7 +173,7 @@ impl Fx {
     }
 }
 
-impl core::ops::Add for Fx {
+impl ops::Add for Fx {
     type Output = Fx;
     #[inline]
     fn add(self, rhs: Fx) -> Fx {
@@ -184,7 +181,7 @@ impl core::ops::Add for Fx {
     }
 }
 
-impl core::ops::Sub for Fx {
+impl ops::Sub for Fx {
     type Output = Fx;
     #[inline]
     fn sub(self, rhs: Fx) -> Fx {
@@ -192,7 +189,7 @@ impl core::ops::Sub for Fx {
     }
 }
 
-impl core::ops::Neg for Fx {
+impl ops::Neg for Fx {
     type Output = Fx;
     #[inline]
     fn neg(self) -> Fx {
@@ -200,7 +197,7 @@ impl core::ops::Neg for Fx {
     }
 }
 
-impl core::ops::Mul for Fx {
+impl ops::Mul for Fx {
     type Output = Fx;
     #[inline]
     fn mul(self, rhs: Fx) -> Fx {
@@ -208,7 +205,7 @@ impl core::ops::Mul for Fx {
     }
 }
 
-impl core::ops::Div for Fx {
+impl ops::Div for Fx {
     type Output = Fx;
     #[inline]
     fn div(self, rhs: Fx) -> Fx {
@@ -216,14 +213,14 @@ impl core::ops::Div for Fx {
     }
 }
 
-impl core::ops::AddAssign for Fx {
+impl ops::AddAssign for Fx {
     #[inline]
     fn add_assign(&mut self, rhs: Fx) {
         self.0 += rhs.0;
     }
 }
 
-impl core::ops::SubAssign for Fx {
+impl ops::SubAssign for Fx {
     #[inline]
     fn sub_assign(&mut self, rhs: Fx) {
         self.0 -= rhs.0;
@@ -232,12 +229,12 @@ impl core::ops::SubAssign for Fx {
 
 /// Rendered as a decimal with nine fractional digits, computed in integers so that printing a
 /// value never involves floating point.
-impl core::fmt::Display for Fx {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for Fx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let neg = self.0 < 0;
         let m = self.abs().0 as u64;
-        let whole = m >> FRAC;
-        let frac = ((m & 0xffff_ffff) as u128 * 1_000_000_000) >> FRAC;
+        let whole = m >> Fx::FRAC;
+        let frac = ((m & 0xffff_ffff) as u128 * 1_000_000_000) >> Fx::FRAC;
         if neg {
             f.write_str("-")?;
         }
@@ -245,8 +242,8 @@ impl core::fmt::Display for Fx {
     }
 }
 
-impl core::fmt::Debug for Fx {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Debug for Fx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self}")
     }
 }

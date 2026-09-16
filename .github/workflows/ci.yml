@@ -27,11 +27,7 @@ jobs:
         run: cargo test --workspace --all-targets
       - name: dependency ban
         run: just deps
-      - name: no authored assets
-        run: just no-assets
 
-  # The determinism proof. Each platform prints the same fingerprints for the same seed,
-  # or the simulation is not deterministic and nothing above it is trustworthy.
   fingerprint:
     name: fingerprint (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

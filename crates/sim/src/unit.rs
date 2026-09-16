@@ -1,7 +1,6 @@
 //! Mobile entities.
 
-use crate::arena::Handle;
-use crate::fx::{Fx, Vec2};
+use crate::{Fx, Handle, Vec2};
 
 /// The medium a unit occupies. Exactly one, and it never changes.
 ///
@@ -9,9 +8,8 @@ use crate::fx::{Fx, Vec2};
 /// are drawn beneath the water hatch so the hatch crosses them, air glyphs above everything
 /// with an offset and a ground shadow. Shape encodes the same thing redundantly, so the
 /// reading survives wherever layering is ambiguous.
-#[derive(
-    Clone, Copy, PartialEq, Eq, Hash, Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 #[rkyv(derive(Debug))]
 #[repr(u8)]
 pub enum Domain {
@@ -31,30 +29,20 @@ pub type Player = u8;
 
 pub const NEUTRAL: Player = u8::MAX;
 
-#[derive(Clone, Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(Clone, Debug)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Unit {
     pub pos: Vec2,
     pub vel: Vec2,
-    /// Heading in turns, counter-clockwise from `+x`. One turn is a full revolution.
     pub facing: Fx,
     pub domain: Domain,
     pub owner: Player,
     pub health: Fx,
-    /// Where the unit is headed, if anywhere.
-    pub goal: Option<Vec2>,
 }
 
 impl Unit {
     pub fn new(pos: Vec2, domain: Domain, owner: Player) -> Unit {
-        Unit {
-            pos,
-            vel: Vec2::ZERO,
-            facing: Fx::ZERO,
-            domain,
-            owner,
-            health: Fx::from_int(100),
-            goal: None,
-        }
+        Unit { pos, vel: Vec2::ZERO, facing: Fx::ZERO, domain, owner, health: Fx::from_int(100) }
     }
 }
 

@@ -4,13 +4,10 @@
 //! and comes back out, so a replay reconstructs the same opening without anyone reselecting
 //! it by hand.
 
-use crate::fx::{Fx, Vec2};
-use crate::state::State;
-use crate::unit::{Domain, Unit};
+use crate::{Domain, Fx, State, Unit, Vec2};
 
-#[derive(
-    Clone, Copy, PartialEq, Eq, Debug, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 #[rkyv(derive(Debug))]
 #[repr(u8)]
 pub enum Scenario {

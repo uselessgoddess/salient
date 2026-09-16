@@ -8,12 +8,12 @@
 //! Falling behind is detected here, not there.
 
 use bevy::prelude::*;
-use salient_sim::{Fx, Sim, TICK_RATE};
+use salient_sim::{Fx, Sim, State};
 
 use crate::args::Args;
 
 /// Seconds per simulation tick, on the rendering side of the boundary.
-const TICK_SECS: f32 = 1.0 / TICK_RATE as f32;
+const TICK_SECS: f32 = 1.0 / State::TICK_RATE as f32;
 
 /// Never advance more than this many ticks in one frame. Without a bound, a stalled frame
 /// makes the next one try to catch up all at once and stall again.
@@ -88,7 +88,7 @@ pub fn plugin(app: &mut App) {
 fn title(driver: Res<Driver>, mut windows: Query<&mut Window>) {
     // Once a second, not once a tick: a fingerprint serializes the whole of state, which is
     // nothing at five hundred units and would be noticeable at twenty thousand.
-    if !driver.stepped || !driver.tick().is_multiple_of(TICK_RATE) {
+    if !driver.stepped || !driver.tick().is_multiple_of(State::TICK_RATE) {
         return;
     }
     for mut w in &mut windows {

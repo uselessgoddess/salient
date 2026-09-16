@@ -103,7 +103,7 @@ fn sin_matches_reference() {
 fn cos_leads_sin() {
     for &(t, _) in SIN {
         let a = Fx::from_bits(t);
-        assert_eq!(trig::cos(a), trig::sin(a + Fx::ratio(1, 4)));
+        assert_eq!(trig::cos(a), trig::sin(a + Fx::from_ratio(1, 4)));
     }
 }
 
@@ -154,8 +154,8 @@ fn saturates_not_wraps() {
 
 #[test]
 fn round_trips_ratio() {
-    assert_eq!(Fx::ratio(1, 2), Fx::HALF);
-    assert_eq!(Fx::ratio(3, 1), Fx::from_int(3));
+    assert_eq!(Fx::from_ratio(1, 2), Fx::HALF);
+    assert_eq!(Fx::from_ratio(3, 1), Fx::from_int(3));
     assert_eq!(Fx::from_int(7).floor(), 7);
     assert_eq!(Fx::from_int(-7).floor(), -7);
     assert_eq!((Fx::from_int(-7) - Fx::HALF).floor(), -8);

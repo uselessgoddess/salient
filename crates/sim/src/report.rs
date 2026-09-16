@@ -4,8 +4,7 @@
 //! exists so that a renderer does not have to compare two states to notice a death, and so a
 //! recorder does not have to guess when a match ended.
 
-use crate::arena::Handle;
-use crate::unit::Player;
+use crate::{Handle, Player};
 
 #[derive(Clone, Debug, Default)]
 pub struct Report {

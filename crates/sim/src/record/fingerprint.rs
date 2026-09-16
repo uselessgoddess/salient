@@ -9,14 +9,15 @@
 
 use core::hash::Hasher;
 
-use crate::state::State;
+use super::snapshot;
+use crate::State;
 
 /// Hash of the serialized state.
 ///
 /// Panics only if state fails to serialize, which cannot happen for a plain data structure.
 /// This is outside the tick loop, so it is not covered by the tick loop's no-panic contract.
 pub fn of(state: &State) -> u64 {
-    let bytes = super::snapshot::to_bytes(state);
+    let bytes = snapshot::to_bytes(state);
     let mut h = rustc_hash::FxHasher::default();
     h.write(&bytes);
     h.finish()
