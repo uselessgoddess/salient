@@ -59,15 +59,30 @@ cargo run -p salient-app -- --seed 7 --scenario showcase
 The showcase scenario places a mixed force: land units on high ground, ships in a bay, submarines
 directly beneath those ships, and aircraft crossing both.
 
-**Look at**: take a still screenshot and read it cold, without touching anything. Submarines should
-read as beneath the surface because the water hatch crosses them. Aircraft should read as above
-because of their offset and ground shadow. Zoom out fully and back in.
+**Check yourself first**, since these are cheap and a failure here makes the gate pointless:
 
-**Expect**: SC-003 — every unit's domain identifiable from a static image, no toggles, no hovering.
+- The same seed twice gives the same coastline, the same contours, and sources in the same places.
+- Zoom from the whole 40 km to a single unit and back. Contour lines stay the same weight on screen
+  throughout, intervals appear and fade rather than snapping, and nothing collapses into fill.
+- The waterline in the picture agrees with where ships can go. A disagreement means the shader and
+  the simulation are reading different sea levels (R10).
+- Zoomed fully out, every unit is still drawn. Formation counters sit over the force, not instead of
+  it.
+
+**Then run the gate, which you cannot run yourself.** SC-003 needs five observers who know the genre
+and have not seen this project. Give each one the same still screenshot, no interaction, no
+explanation, and ask them to name the domain of every unit they can see. Record the answers.
+
+**Expect**: at most one wrong identification across the whole sample. The author is not an eligible
+observer — a grammar cannot be read cold by the person who drew it, which is the whole reason the
+threshold is stated in observers rather than in confidence.
 
 **GATE question**: does the visual language work? Everything in this project rests on the answer,
 and it is being asked in the second increment specifically so that a "no" is survivable. A "no" here
 costs weeks. The same "no" discovered at M7 costs the project.
+
+If the answer is no, the thing to change is the spec, not the shader. Reaching a gate and turning
+back is the plan working.
 
 ---
 

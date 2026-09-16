@@ -29,20 +29,28 @@ its own index. Neutral ownership is a reserved value.
 ### Map
 
 Generated entirely from a seed and immutable for the duration of a match (Assumption: terrain is
-static).
+static). One grid of 2048 x 2048 cells over the 40 x 40 km world — 19.53 m to a cell (R16). Every
+grid below shares those dimensions; this slice has no second, coarser grid.
 
 | Field | Type | Notes |
 |---|---|---|
 | `seed` | `u64` | The only input to generation |
 | `extent` | `(Fx, Fx)` | World size; 40 km x 40 km at target scale |
-| `height` | grid of `i16` | Elevation, one sample per terrain cell |
-| `sea_level` | `i16` | Cells below this are water |
-| `passability` | grid of `u8` bitset | One bit per domain |
+| `height` | grid of `i16` | Elevation in metres, one sample per cell (R17) |
+| `sea_level` | `i16` | Derived from the height histogram at a target water fraction (R18) |
+| `passability` | grid of `u8` bitset | One bit per domain, from height and slope (R18) |
 | `move_cost` | grid of `u8` | Terrain cost multiplier per cell, per FR-012 |
-| `sources` | `Vec<ResourceSource>` | Placement is part of generation |
+| `start` | `(Fx, Fx)` | Opening position, in the largest land component (R18) |
+| `sources` | `Vec<ResourceSource>` | Drawn from the cells reachable from `start` |
 
-**Validation**: generation MUST reject a seed whose map has no player-reachable resource sources
-(Edge case: unusable layout). Rejection is deterministic — the same seed always fails.
+**Validation**: none, deliberately. Generation cannot produce an unusable layout, because a source
+position is only ever drawn from the set of cells already reachable from `start`, and that set is
+never empty because `start` belongs to it (R18, FR-005). There is no reject path, no retry, and no
+way for starting a match to fail.
+
+**Not state**: the height texture the renderer samples (R10) is derived from `height` when a match
+loads. It is a copy held by the display, never read by the simulation, and takes no part in the
+fingerprint.
 
 ### Resource Source
 

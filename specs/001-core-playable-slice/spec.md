@@ -23,6 +23,34 @@ campaign layer carrying a front between matches.
 Excluding these is a scope decision, not a design change. All of them were designed for and
 remain compatible with the model described here.
 
+## Clarifications
+
+### Session 2026-09-16
+
+- Q: Does `Map` carry passability and movement cost on the same grid as elevation, or does movement
+  get its own coarser grid? → A: One grid. 2048 x 2048 at 19.53 m per cell carries elevation, water,
+  passability and cost alike; routing builds whatever coarser structure it needs on top, in the
+  increment that adds routing.
+- Q: What happens when a seed would produce a map with no player-reachable resource sources? → A:
+  It cannot happen. Sources are placed on cells already known to be reachable from the player's
+  start, derived from the connectivity of the generated terrain, so generation has nothing to reject
+  and starting a match cannot fail.
+- Q: Who answers the M1 gate question, and against what threshold? → A: Five observers familiar with
+  the genre and new to the project, one static screenshot each, at most one wrong identification
+  across the whole sample. The author cannot answer it: reading a grammar cold is not possible for
+  the person who drew it.
+- Q: What does an aggregate marking show when units collapse into it at wide zoom? → A: It is an
+  overlay, not a collapse. A formation counter is drawn over a concentration of force — dominant
+  domain as its shape, owner as its colour, covering the ground the force occupies rather than
+  marking a point — while every individual unit glyph and every attack stays drawn underneath it at
+  all zoom levels. Because nothing is hidden, there is no mode to switch and the no-toggle
+  requirements stand as written.
+- Q: Does the map carry one contour interval or several levels chosen by zoom? → A: Neither as a set
+  of baked levels. Contour interval is a continuous function of zoom, computed in the shader from a
+  height texture the way the water hatch already is, so line weight stays constant on screen and an
+  interval that would crowd past legibility fades out instead of converging into fill. Index
+  contours are every fifth line. This supersedes the marching-squares line mesh in research R10.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Read the battlefield and move a force (Priority: P1)
@@ -54,8 +82,8 @@ interacting with the display, and that units reach their destinations without st
 5. **Given** a recorded sequence of orders and a seed, **When** the match is replayed, **Then**
    every unit ends in an identical position and state.
 6. **Given** the player zooms out, **When** the display crosses a detail threshold, **Then**
-   individual units resolve into aggregate markings without the player losing track of where
-   forces are.
+   formation counters appear over the force while the individual unit glyphs stay drawn beneath
+   them, and the player does not lose track of where forces are.
 7. **Given** a match is saved partway through, **When** it is resumed, **Then** play continues to
    the same outcome as an uninterrupted run of the same orders.
 
@@ -262,8 +290,9 @@ order with no further player input.
   and the unit's standing order is defined.
 - A recording is loaded against a build whose simulation behaviour has changed: the recording is
   refused with an explanation rather than played back to a wrong outcome.
-- The map is generated from a seed producing an unusable layout, such as no reachable resource
-  sources: generation detects and rejects such layouts.
+- A seed would otherwise produce an unusable layout, such as resource sources the player cannot
+  reach: this cannot arise. Sources are placed only on cells already reachable from the player's
+  start, so there is no layout to detect, no retry, and no way for map generation to fail.
 - Unit count reaches the supported maximum and production continues: the limit is enforced
   visibly rather than by silent failure.
 
@@ -285,15 +314,22 @@ order with no further player input.
 **Map and display**
 
 - **FR-005**: Maps MUST be generated from a seed, including terrain elevation, water extent, and
-  resource source placement.
-- **FR-006**: The display MUST render terrain, water, units, and structures from generated
-  geometry only, with no authored image assets.
+  resource source placement. Every seed MUST yield a map the player can win or lose on, with at
+  least one resource source reachable from the player's start, and map generation MUST NOT be able
+  to fail or to ask for a different seed.
+- **FR-006**: The display MUST draw terrain, water, units, and structures entirely from code and
+  generated data, with no authored image assets. Terrain contours MUST stay legible across the whole
+  zoom range: line weight MUST be constant on screen, and an interval that would crowd past
+  legibility at a given zoom MUST fade out rather than converge into fill.
 - **FR-007**: The display MUST distinguish land, surface, subsurface, and air units simultaneously
   without requiring the player to switch modes or filters.
 - **FR-008**: Unit glyphs MUST encode domain by shape and role by marking, using a consistent
   visual grammar across all unit types.
-- **FR-009**: The display MUST support continuous zoom, resolving individual units into aggregate
-  markings as the view widens.
+- **FR-009**: The display MUST support continuous zoom. As the view widens it MUST draw formation
+  counters over concentrations of force: a counter takes the dominant domain as its shape and the
+  owner as its colour, and covers the ground the force occupies rather than marking a point.
+  Individual unit glyphs and their attacks MUST stay drawn at every zoom level — a counter is an
+  overlay, never a replacement, which is what keeps FR-007's ban on mode switching true.
 - **FR-010**: The display MUST mark supply routes with their throughput and highlight routes that
   are constraining demand.
 
@@ -390,8 +426,9 @@ order with no further player input.
 
 ### Key Entities
 
-- **Map**: A generated battlefield. Holds elevation, water extent, passability per domain, and
-  the positions of resource sources. Fully determined by its seed.
+- **Map**: A generated battlefield. Holds elevation, water extent, passability per domain, movement
+  cost per domain, and the positions of resource sources — all on one grid of 2048 x 2048 cells
+  across the 40 x 40 km map, 19.53 m to a cell. Fully determined by its seed.
 - **Resource Source**: A fixed position on the map that yields resources when claimed. The
   original anchor of the supply network.
 - **Supply Node**: Any position holding a local stock — a structure, a builder, or a forward
@@ -425,8 +462,10 @@ order with no further player input.
   behind real time on a current consumer machine.
 - **SC-002**: A recorded match replays to an identical outcome on Linux, Windows, and macOS, with
   matching state fingerprints at every checkpoint.
-- **SC-003**: An observer viewing a static screenshot correctly identifies the domain of every
-  visible unit, with no view toggles, filters, or hovering, at least 95% of the time.
+- **SC-003**: Five observers familiar with the genre and new to the project, each shown one static
+  screenshot of a mixed force, correctly identify the domain of every visible unit with no view
+  toggles, filters, or hovering. At most one identification across the whole sample may be wrong.
+  The author is not an eligible observer: a grammar cannot be read cold by the person who drew it.
 - **SC-004**: A player maintains a 2,000-unit force across three separate fronts for ten minutes
   without manually assigning a single replacement unit to a task.
 - **SC-005**: Moving one tuning value takes the economy from behaving as a single shared pool to
@@ -467,10 +506,22 @@ order with no further player input.
   mode.
 - **First tier only**: all units in this slice are first tier. The visual grammar reserves markings
   for higher tiers, but no higher tier exists yet.
+- **Formation counters carry position and identity in this slice, not strength**: a counter says
+  where a force is, whose it is, and which domain dominates it. Dividing a force into named echelons
+  implicitly is rule-based grouping, which arrives with predicate selection in the last increment,
+  and an echelon strength marking needs somewhere in the grammar that does not collide with the
+  markings already reserved above for higher tiers. Both are later decisions, not gaps here.
 - **Aircraft do not refuel or land**: aircraft remain airborne indefinitely, following genre
   convention, unless later design work says otherwise.
 - **Terrain is static**: terrain elevation and water extent do not change during a match. Only
-  structures, units, and wreckage change.
+  structures, units, and wreckage change. Because it is static, the cost of comparing two matches
+  for divergence does not grow with the size of the map.
+- **Routing will not sweep the terrain grid**: measured on a current machine, a 2048 x 2048 grid
+  costs 13 ms to generate and 5 ms to extract contours from, both once per match, while a single
+  flow field swept over every one of its cells costs 27.5 ms — against a 10 ms per-tick target.
+  Long-range routing therefore needs a structure coarser than the terrain grid. That is a decision
+  for the increment that adds routing; it is recorded here so it arrives as a known constraint
+  rather than as a surprise.
 - **Simulation update rate is fixed and low**, with visuals interpolated between updates. This is
   assumed rather than derived, because both the unit-count target and later multiplayer depend on
   it.

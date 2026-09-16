@@ -31,7 +31,9 @@ needs to know how a tick works.
 - **G1 — Purity.** `step` is a pure function of `(state, orders)`. Two `Sim` values with equal
   fingerprints, stepped with equal orders, produce equal fingerprints. Forever, on every platform.
 - **G2 — Total.** `step` never panics and never returns an error. Invalid input is rejected by
-  `validate` at the boundary; anything reaching `step` is already well-formed.
+  `validate` at the boundary; anything reaching `step` is already well-formed. `new` is total for the
+  same reason at the other end: map generation constructs a usable layout rather than proposing one
+  and checking it, so no seed can be refused and starting a match cannot fail (FR-005, research R18).
 - **G3 — Closed.** `step` performs no I/O, reads no clock, consults no environment, and allocates
   nothing whose address can influence behaviour.
 - **G4 — Fixed cadence.** One `step` is one tick. The simulation has no concept of elapsed real

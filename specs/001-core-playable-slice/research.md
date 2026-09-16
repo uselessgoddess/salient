@@ -191,17 +191,46 @@ mesh needs; revisit only if measurement demands it.
 
 ## R10. Terrain rendering
 
-**Decision**: Contours by marching squares over the height field, generated once per map into a
-static line mesh. Water as a region mask, generated from the same height field, with the hatch
-pattern produced procedurally in the fragment shader from world-space coordinates.
+**Revised 2026-09-17.** The original decision — marching squares over the height field into a static
+line mesh, water as a region mask mesh — is superseded. It was taken before the map resolution was
+fixed (R16) and before wide-zoom contour density was measured.
 
-**Rationale**: Both are pure functions of the seed, so both satisfy Principle V without argument.
-Generating the hatch in the shader rather than as geometry keeps line weight constant on screen
-across the full zoom range, which a geometry-based hatch would not.
+**Decision**: Contours and water are both produced in the fragment shader from one height texture,
+with no terrain geometry at all. The height field is uploaded once per match as a 2048 x 2048 R16
+texture. A fragment samples it, divides by the contour interval, and draws a line where the
+fractional part crosses zero, taking its width from the screen-space derivative so the line is one
+pixel wide at every zoom. The interval is a power of two derived from the current scale, adjacent
+intervals cross-faded, and any interval whose spacing falls below legibility faded out; every fifth
+line is an index contour drawn heavier. Water is the same texture thresholded at sea level, hatched
+from world-space coordinates as before.
+
+**Rationale**: Constant on-screen line weight was already the argument for generating the hatch in
+the shader rather than as geometry. It applies to contours word for word, and running the two
+through different techniques would be keeping two answers to one question.
+
+Deriving the interval from scale is what actually solves legibility at wide zoom. With a single
+baked interval, a 2048-cell grid over 40 km converges into fill long before the whole map is on
+screen — around four million segments at one measured interval — and no line-weight trick recovers
+it. In the shader the interval is continuous rather than a set of levels, so widening the view has
+no visible snap.
+
+It also removes terrain geometry, the marching-squares pass and a per-level mesh pyramid from the
+increment. That matters beyond tidiness: M1 is a gate, and the cheaper it is to reach, the cheaper a
+"no" is.
+
+**Cost and caveats**: 8.4 MB of VRAM for the height texture, uploaded once, since terrain is static.
+Bilinear sampling makes contours smooth rather than polygonal — closer to a printed sheet, and
+harmless to determinism, because rendering never writes to the simulation. One coupling to hold: the
+shader's water threshold and the simulation's water mask must read the same `sea_level`, or the
+picture disagrees with passability.
 
 **Alternatives considered**: A height-shaded raster — rejected; it reads as a terrain map rather
 than a staff display, which is the entire visual thesis. Hatch as generated geometry — rejected;
-zoom behaviour is wrong and the vertex count is pointless.
+zoom behaviour is wrong and the vertex count is pointless. Baked contour meshes at several intervals
+— the direct fix for the density problem, rejected because it buys discrete levels with visible
+transitions where the shader gives continuous ones, and keeps a geometry pipeline nothing else
+needs. Marching squares over a downsampled height pyramid — rejected; it changes the shape of the
+terrain with zoom rather than only the amount of detail shown.
 
 ---
 
@@ -350,3 +379,129 @@ complete order log — which is the recording — and a view of every peer's fin
 detected centrally and the diverging peer named. Known limitation to carry forward: peer-to-peer
 lockstep cannot prevent map hacking, since every peer simulates the whole world. This matters more
 here than in a conventional RTS because the intelligence picture is the game.
+
+---
+
+## R16. Map resolution and height representation
+
+*Added 2026-09-17 from the M1 clarifications.*
+
+**Decision**: One grid of 2048 x 2048 cells over the 40 x 40 km map — 19.53 m to a cell, the scale
+the reference game uses for a map of this size. Elevation is `i16` metres. Elevation, water,
+per-domain passability and movement cost all share this grid. There is no second, coarser grid.
+
+**Measured** (release profile, `overflow-checks = true`, current machine):
+
+| N | m/cell | cells | state | generate | contours | hash | one flow field |
+|---|---|---|---|---|---|---|---|
+| 256 | 156 | 65k | 0.2 MB | 0.3 ms | 0.1 ms | 0.01 ms | 0.7 ms |
+| 512 | 78 | 262k | 1.0 MB | 1.1 ms | 0.4 ms | 0.10 ms | 2.4 ms |
+| 1024 | 39 | 1.05M | 3.8 MB | 4.0 ms | 1.6 ms | 0.24 ms | 7.2 ms |
+| **2048** | **19.53** | 4.19M | 15.2 MB | 12.8 ms | 5.3 ms | 1.10 ms | **27.5 ms** |
+| 4096 | 9.8 | 16.8M | 60.8 MB | 50.6 ms | 21.1 ms | 3.75 ms | 129.2 ms |
+
+**Rationale**: Generation and contour extraction are one-off at match start and negligible at any
+row. Hashing is only a per-tick cost if static terrain is re-serialised into every fingerprint,
+which it is not (R5, and the static-terrain assumption in the spec).
+
+The number that is not negligible is the last column: a flow field swept over every cell costs
+27.5 ms against a 10 ms tick target. That cost belongs to routing, which this slice defers to M2,
+and the answer there will be a coarser structure built over this grid rather than a coarser grid
+underneath it — which is also how the reference game does it, with a heightmap at this resolution
+and pathing that does not touch it. Fixing a second grid now would be answering M2's question
+without M2's evidence.
+
+`i16` metres rather than `Fx`: elevation is sampled, never accumulated, so fractional precision buys
+nothing and the narrower type halves the field.
+
+**Alternatives considered**: 1024 x 1024 — rejected; it halves contour detail on a 40 km sheet to
+buy a flow-field cost still too high to use unchanged. 512 or 256 — rejected; a cell wider than a
+500-unit formation makes the "broken terrain" of US1 scenario 4 meaningless. Two grids, 2048 for
+display and 512 for movement — rejected as premature, above. 4096 — rejected; it is the first row
+where a one-off stops being free, for detail below what 19.53 m already resolves.
+
+---
+
+## R17. Height field generation
+
+*Added 2026-09-17 from the M1 clarifications.*
+
+**Decision**: Fractional Brownian motion over integer value noise. Each octave hashes the four
+lattice corners from `(x, y, seed, octave)` through a 64-bit integer mix, interpolates with a cubic
+smoothstep evaluated in `i64`, and accumulates at halving amplitude; four to six octaves. No
+floating point, no transcendentals, and no division by anything but a power of two.
+
+**Rationale**: Every cell is a pure function of its coordinates and the seed, so reproducibility
+comes from construction rather than from iteration order, and the grid can later be filled in
+disjoint slices without changing a bit — the phase shape Principle IV asks for. Value noise rather
+than gradient noise: Perlin costs a vector and a dot product at every corner, which is more
+arithmetic and more rounding sites, for a difference that does not survive being drawn as contours
+at 19.53 m cells.
+
+**Measured**: a four-octave integer hash fill of 2048 x 2048 takes 12.8 ms. Interpolation will raise
+that; it stays a one-off at match start.
+
+**Alternatives considered**: Perlin or simplex — rejected above. Diamond-square — rejected; it is
+sequential over the whole grid, so no cell can be evaluated on its own, which forecloses both
+disjoint-slice generation and any coarse preview.
+
+---
+
+## R18. Sea level, passability, and where sources may be placed
+
+*Added 2026-09-17 from the M1 clarifications.*
+
+**Decision**: Sea level is derived, not fixed. Histogram the generated height field and take the
+level at a target water fraction, so every seed yields a map with water and with coastline without
+per-seed tuning. Passability follows from it: surface below sea level, subsurface below it by a
+draught margin, land above it wherever slope is under a threshold, air everywhere. The player's
+start is placed in the largest land-connected component; a flood fill from that start over
+land-passable cells gives the reachable set, and resource source positions are drawn from that set
+with the seeded generator.
+
+**Rationale**: This is what makes FR-005's "generation MUST NOT be able to fail" true by
+construction rather than by retry. There is no candidate to validate and reject, because a position
+is only ever drawn from cells already known to be reachable, and the set is never empty because the
+start is in it. Taking the start from the *largest* component rather than any component makes the
+set not merely non-empty but large, so sources spread instead of crowding into a cove.
+
+**Alternatives considered**: Place randomly, test reachability, re-roll the seed on failure —
+rejected; it makes starting a match fallible for a case construction can rule out, and a bounded
+retry shrinks the failure probability rather than removing it. Repairing a bad layout by moving
+sources afterwards — rejected; a repair pass is a second generator whose output has to be
+indistinguishable from the first one's.
+
+---
+
+## R19. Formation counters and level of detail
+
+*Added 2026-09-17 from the M1 clarifications.*
+
+**Decision**: Individual unit glyphs are drawn at every zoom, with a floor on their on-screen size,
+and are never replaced. Above a density threshold a formation counter is drawn *over* each
+concentration of force: shape from the dominant domain, colour from the owner, extent covering the
+ground the group holds rather than marking a point. Counters are computed render-side by bucketing
+unit positions on a coarse world grid, rebuilt at tick rate alongside the glyph mesh.
+
+**Rationale**: Keeping every glyph costs nothing the renderer was not already paying. R9 puts all
+20,000 into one mesh of roughly 160,000 vertices and one draw call, and that is independent of zoom.
+The usual reason to collapse units into aggregates is cost, and here there is none — what a wide
+view actually lacks is grouping, and an overlay supplies it without taking the honest picture away.
+
+That is also what keeps FR-007's ban on mode switching true. There is no mode to switch, because
+nothing is hidden.
+
+Counters are render-side because they are display structure that never feeds back into the
+simulation. They therefore carry no determinism obligation and no weight in the fingerprint, which
+is why a clustering rule may be chosen for how it looks rather than for how it iterates.
+
+**Deferred**: dividing a force into named echelons implicitly is rule-based grouping, and arrives
+with predicate selection in M8. An echelon strength marking needs somewhere in the grammar that does
+not collide with the markings already reserved for higher tiers.
+
+**Alternatives considered**: Collapsing units into aggregates and drawing only the aggregate —
+rejected; it is the standard answer to a cost problem this renderer does not have, and it removes
+exactly the detail a commander zooms out to correlate. A player-operated toggle between an honest
+and a tactical view — deferred to M8 rather than rejected; it is about giving orders, not about
+reading the map, and if the map only reads through a toggle then the M1 gate has been failed rather
+than passed.

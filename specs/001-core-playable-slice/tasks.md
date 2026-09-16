@@ -136,39 +136,45 @@ interacting — then confirm the same seed reproduces the same map.
 **Scope note**: User Story 1 also covers movement (acceptance scenario 4), which belongs to M2 and is
 not in this list. Scenarios 1, 2, 3, and 6 are satisfied here; scenario 5 was satisfied in M0.
 
+**Revised 2026-09-17** against the M1 clarifications and research R10 and R16 through R19. Three
+tasks were removed and their numbers reused, so the block is still T042 through T059; see the
+before-and-after mapping in [plan.md](./plan.md#task-list-impact).
+
 ### Map generation
 
-- [ ] T042 [P] [US1] Generate the seeded height field in `crates/sim/src/map/height.rs`
-- [ ] T043 [US1] Derive sea level, the water mask, and the per-domain passability bitset from the height field in `crates/sim/src/map/terrain.rs`
-- [ ] T044 [P] [US1] Derive the per-cell movement cost grid in `crates/sim/src/map/cost.rs`
-- [ ] T045 [P] [US1] Place resource sources deterministically from the seed in `crates/sim/src/map/sources.rs`
-- [ ] T046 [US1] Reject seeds whose maps have no player-reachable resource sources, deterministically, in `crates/sim/src/map/validate.rs`
-- [ ] T047 [US1] Fold `Map` into `SimState` so it participates in the fingerprint in `crates/sim/src/state.rs`
-- [ ] T048 [US1] Implement the `showcase` scenario placing land units on high ground, ships in a bay, submarines directly beneath those ships, and aircraft crossing both, in `crates/sim/src/scenario.rs`
-- [ ] T049 [US1] Write the map determinism test asserting one seed yields one fingerprint across runs in `crates/sim/tests/map.rs`
+- [ ] T042 [US1] Define `Map` over the 2048 x 2048 grid with cell-to-world conversion, keeping the grid constants on the type rather than at module root (R16), in `crates/sim/src/map/mod.rs`
+- [ ] T043 [US1] Generate the seeded height field as fBm over integer value noise — four to six octaves, `i16` metres, every cell a pure function of `(x, y, seed)` with no floating point (R17) — in `crates/sim/src/map/height.rs`
+- [ ] T044 [US1] Derive sea level from the height histogram at the target water fraction, then the water mask, the slope field, and the per-domain passability bitset (R18), in `crates/sim/src/map/terrain.rs`
+- [ ] T045 [P] [US1] Derive the per-cell movement cost grid in `crates/sim/src/map/cost.rs`
+- [ ] T046 [P] [US1] Place the player's start in the largest land-connected component and flood-fill the reachable set from it (R18) in `crates/sim/src/map/reach.rs`
+- [ ] T047 [US1] Draw resource source positions from the reachable set with the seeded generator, so placement has no failure path and no retry (FR-005, R18), in `crates/sim/src/map/sources.rs`
+- [ ] T048 [US1] Fold `Map` into `State` so terrain participates in the fingerprint in `crates/sim/src/state.rs`
+- [ ] T049 [US1] Hash the static terrain once at generation and fold that digest into the per-tick fingerprint instead of re-serialising the grid every time (R16: 1.10 ms per measurement at this resolution otherwise), in `crates/sim/src/record/fingerprint.rs`
+- [ ] T050 [US1] Implement the `showcase` scenario placing land units on high ground, ships in a bay, submarines directly beneath those ships, and aircraft crossing both, in `crates/sim/src/scenario.rs`
+- [ ] T051 [US1] Write the map determinism test asserting one seed yields one fingerprint across runs in `crates/sim/tests/map.rs`
 
 ### Terrain and water display
 
-- [ ] T050 [P] [US1] Extract contours by marching squares over the height field into a static line mesh in `crates/app/src/draw/contour.rs`
-- [ ] T051 [P] [US1] Build the water region mesh from the water mask in `crates/app/src/draw/water.rs`
-- [ ] T052 [P] [US1] Write the fragment shader generating the hatch procedurally from world coordinates, with density driven by depth, in `crates/app/src/shader/hatch.wgsl`
-- [ ] T053 [US1] Implement the hatch material and keep line weight constant on screen across the zoom range in `crates/app/src/draw/material.rs`
+- [ ] T052 [US1] Upload the height field as a 2048 x 2048 R16 texture once per match and draw the terrain on a single quad, passing `sea_level` through from the simulation rather than re-deriving it (R10), in `crates/app/src/draw/terrain.rs`
+- [ ] T053 [US1] Write the terrain fragment shader — contour lines from the height texture with width taken from the screen-space derivative, a power-of-two interval derived from scale with adjacent intervals cross-faded and any interval past legibility faded out, every fifth line an index contour, water thresholded at sea level, and the depth-driven hatch (R10) — in `crates/app/src/shader/terrain.wgsl`
 
 ### Glyph grammar and domain separation
 
-- [ ] T054 [US1] Add the domain shapes and tier markings to the glyph table — rectangle for land, wedge for surface, wedge with an underbar for subsurface, chevron for air — in `crates/app/src/draw/shape.rs`
+- [ ] T054 [P] [US1] Extend the glyph table with tier markings and reserve their position in the grammar — the four domain outlines already landed in M0 — in `crates/app/src/draw/shape.rs`
 - [ ] T055 [US1] Implement the draw order that carries the meaning: subsurface before the water layer so the hatch crosses it, land and surface after it, air last, in `crates/app/src/draw/layer.rs`
 - [ ] T056 [US1] Give air glyphs a zoom-scaled parallax offset and a soft ground shadow ellipse at their true position in `crates/app/src/draw/layer.rs`
 
-### Zoom and level of detail
+### Zoom, level of detail, and formation counters
 
-- [ ] T057 [P] [US1] Implement camera zoom and pan in `crates/app/src/view/camera.rs`
-- [ ] T058 [US1] Implement the level-of-detail thresholds switching between unit body, glyph, and aggregate in `crates/app/src/draw/lod.rs`
-- [ ] T059 [US1] Implement aggregate markings for the zoomed-out view so force positions stay legible in `crates/app/src/draw/lod.rs`
+- [ ] T057 [P] [US1] Extend the M0 camera's zoom range to run from the whole 40 km map down to a single unit, keeping pan speed proportional to scale, in `crates/app/src/view/camera.rs`
+- [ ] T058 [US1] Implement level-of-detail bands that add rather than swap: every unit glyph stays drawn at every zoom with a floor on its on-screen size, and a band governs what is drawn over them (R19), in `crates/app/src/draw/lod.rs`
+- [ ] T059 [US1] Implement formation counters — shape from the dominant domain, colour from the owner, extent covering the ground the group holds — bucketed render-side and rebuilt at tick rate (R19), in `crates/app/src/draw/counter.rs`
 
-**Checkpoint M1 — GATE**: Run the M1 section of [quickstart.md](./quickstart.md). Take a still
-screenshot of the `showcase` scenario and read it cold. SC-003 requires every unit's domain to be
-identifiable with no toggles and no hovering.
+**Checkpoint M1 — GATE**: Run the M1 section of [quickstart.md](./quickstart.md). Do the
+self-checks first — same seed twice, zoom sweep, waterline against passability, every unit still
+drawn when zoomed out. Then the gate itself, which you cannot run alone: five observers who know the
+genre and have not seen the project, one still screenshot each, at most one wrong domain
+identification across the whole sample (SC-003).
 
 **Gate question**: does the visual language work? Everything else rests on the answer, which is why
 it is being asked in the second increment. A "no" here costs weeks; the same "no" at M7 costs the
@@ -182,13 +188,14 @@ turning back is the plan working, not failing.
 **Purpose**: Things that serve both increments and everything after them. None of these block the
 M1 gate.
 
-- [ ] T060 [P] Define the display palette as named tokens rather than scattered literals in `crates/app/src/draw/palette.rs`
-- [ ] T061 [P] Add the tick budget benchmark, measuring now so later regressions have a baseline, in `crates/sim/benches/tick.rs`
+- [ ] T060 [P] Define the display palette and the display tuning constants as named tokens on the types that own them rather than as loose module-root literals — the M0 camera's zoom limits and the glyph radius are the existing examples (Principle IX) — in `crates/app/src/draw/palette.rs`
+- [X] T061 [P] Add the tick budget benchmark, measuring now so later regressions have a baseline, in `crates/sim/benches/tick.rs`
 - [ ] T062 [P] Implement the `replay-diff` binary bisecting divergence from checkpoint fingerprints in `crates/tools/src/bin/replay-diff.rs`
-- [ ] T063 Add the CI job comparing fingerprints produced by the three platform runners in `.github/workflows/ci.yml`
-- [ ] T064 Add the CI checks running `deps-check` and asserting no asset directory exists in `.github/workflows/ci.yml`
+- [X] T063 Add the CI job comparing fingerprints produced by the three platform runners in `.github/workflows/ci.yml`
+- [X] T064 Add the CI check running `deps-check` in `.github/workflows/ci.yml` — the asset-directory check originally paired with it was removed in `5a712e6`, because an `assets/` directory is visible in the diff that adds it and the workflow section bans a gate that restates a rule already plain in a hand-edited file
 - [ ] T065 [P] Write build and run instructions in `README.md`
 - [ ] T066 Run both checkpoint procedures in [quickstart.md](./quickstart.md) end to end and record the answers to the two hand questions
+- [ ] T067 Install the Bevy Linux system libraries so the workspace lint builds the shell on all three CI runners, as a `just setup` recipe rather than a step that exists only inside the workflow, in `justfile` and `.github/workflows/ci.yml`
 
 ---
 
@@ -216,10 +223,10 @@ M1 gate.
 
 ### Within Phase 3
 
-- T043 depends on T042; T044 and T045 depend on T042; T046 depends on T043 and T045
-- T047 depends on T043 through T046; T048 depends on T047; T049 depends on T047
-- T050 and T051 depend on T047; T053 depends on T052
-- T055 depends on T051 and T054; T056 depends on T055
+- T043 depends on T042; T044 depends on T043; T045 and T046 depend on T044; T047 depends on T046
+- T048 depends on T042 through T047; T049, T050 and T051 depend on T048
+- T052 depends on T048 — it reads `height` and `sea_level`; T053 depends on T052
+- T055 depends on T053 and T054; T056 depends on T055
 - T058 depends on T057; T059 depends on T058
 
 ### Parallel Opportunities
@@ -228,8 +235,9 @@ Marked `[P]` tasks touch different files and have no ordering constraint within 
 
 - **Phase 1**: T002, T003, T005, T006, T007 after T001; T008 and T009 independently
 - **Phase 2**: T010 with T011; then T013 with T017, T019, T020, T022, T028; then T032, T035, T037, T040, T041
-- **Phase 3**: T042 with nothing else initially; then T044 with T045; then T050, T051, T052, T057
-- **Phase 4**: T060, T061, T062, T065
+- **Phase 3**: T045 with T046 once T044 lands; T054 and T057 at any point, since neither touches the
+  simulation; T050 with T051 once T048 lands
+- **Phase 4**: T060, T062, T065
 
 Note that `[P]` here means "safe to reorder or hand to a parallel agent", not "needs a second
 developer". This is a solo project; the value of the marker is that it identifies what can be
@@ -255,8 +263,9 @@ M1 produces the first thing worth looking at, and the first gate.
 3. Phase 2 core and recording (T017 through T031) until the golden replay test passes
 4. Phase 2 shell (T032 through T041) until glyphs drift smoothly on screen
 5. **Stop at Checkpoint M0.** Run the three-platform fingerprint check. Answer the hand question
-6. Phase 3 simulation side (T042 through T049), then display side (T050 through T059)
-7. **Stop at the M1 gate.** Read a screenshot cold. Answer the gate question
+6. Phase 3 simulation side (T042 through T051), then display side (T052 through T059)
+7. **Stop at the M1 gate.** Do the self-checks, then put a screenshot in front of five people who
+   have not seen it. Answer the gate question
 8. Phase 4 whenever convenient
 
 ### Hand edits between increments are expected
