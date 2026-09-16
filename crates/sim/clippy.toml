@@ -1,0 +1,13 @@
+disallowed-types = [
+  { path = "f32", reason = "floating point is forbidden in the simulation; use Fx" },
+  { path = "f64", reason = "floating point is forbidden in the simulation; use Fx" },
+  { path = "std::collections::HashMap", reason = "randomly seeded; iteration order varies per process" },
+  { path = "std::collections::HashSet", reason = "randomly seeded; iteration order varies per process" },
+  { path = "std::time::Instant", reason = "the tick number is the only clock" },
+  { path = "std::time::SystemTime", reason = "the tick number is the only clock" },
+]
+
+disallowed-methods = [
+  { path = "std::time::Instant::now", reason = "the tick number is the only clock" },
+  { path = "std::time::SystemTime::now", reason = "the tick number is the only clock" },
+]

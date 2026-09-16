@@ -1,0 +1,37 @@
+[workspace]
+resolver = "3"
+members = ["crates/sim", "crates/app", "crates/tools"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+salient-sim = { path = "crates/sim" }
+
+rkyv = { version = "0.8", features = ["little_endian"] }
+rustc-hash = "2.1"
+
+bevy = "0.19"
+criterion = "0.8"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+disallowed_types = "deny"
+disallowed_methods = "deny"
+
+[profile.dev]
+overflow-checks = true
+
+[profile.test]
+overflow-checks = true
+
+[profile.release]
+overflow-checks = true
+
+[profile.bench]
+overflow-checks = true

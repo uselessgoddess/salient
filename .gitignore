@@ -1,0 +1,12 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# recordings and snapshots produced while playing
+/*.rec
+/*.snap
+/.local
+
+.DS_Store
+.idea/
+*.swp

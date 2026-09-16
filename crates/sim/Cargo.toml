@@ -1,0 +1,20 @@
+[package]
+name = "salient-sim"
+description = "Deterministic simulation core. No engine, no clock, no network, no floating point."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rkyv.workspace = true
+rustc-hash.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "tick"
+harness = false

@@ -1,0 +1,13 @@
+[package]
+name = "salient-app"
+description = "Bevy shell: reads simulation state and draws it. Never writes to the simulation."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+salient-sim.workspace = true
+bevy.workspace = true
+
+[lints]
+workspace = true

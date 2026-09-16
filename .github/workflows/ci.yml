@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: extractions/setup-just@v2
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: lint
+        run: just lint
+      - name: test
+        run: cargo test --workspace --all-targets
+      - name: dependency ban
+        run: just deps
+      - name: no authored assets
+        run: just no-assets
+
+  # The determinism proof. Each platform prints the same fingerprints for the same seed,
+  # or the simulation is not deterministic and nothing above it is trustworthy.
+  fingerprint:
+    name: fingerprint (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: print fingerprints
+        run: cargo run -q -p salient-tools --bin fingerprint -- --seed 1 --ticks 6000 | tee fingerprint.txt
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fingerprint-${{ matrix.os }}
+          path: fingerprint.txt
+
+  compare:
+    name: fingerprints agree
+    needs: fingerprint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: fp }
+      - name: compare across platforms
+        run: |
+          set -eu
+          found=$(find fp -name fingerprint.txt | sort)
+          echo "$found"
+          first=$(echo "$found" | head -1)
+          for f in $found; do
+            if ! diff -q "$first" "$f" >/dev/null; then
+              echo "::error::fingerprints differ between platforms"
+              for g in $found; do echo "--- $g"; cat "$g"; done
+              exit 1
+            fi
+          done
+          echo "all platforms agree"
